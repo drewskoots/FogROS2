@@ -54,18 +54,15 @@ class CloudInstance(abc.ABC):
 
     def __init__(
         self,
-        ros_workspace=os.path.dirname(os.getenv("COLCON_PREFIX_PATH")),
+        # Janky, but strips only top workspace in case overlay workspaces exist:
+        ros_workspace=os.path.dirname(os.getenv("COLCON_PREFIX_PATH").split(":")[0]),
         working_dir_base=instance_dir(),
         launch_foxglove=False,
     ):
         if "RMW_IMPLEMENTATION" not in os.environ:
-            raise MissingEnvironmentVariableException(
-                "RMW_IMPLEMENTATION environment variable not set!"
-            )
+            raise MissingEnvironmentVariableException("RMW_IMPLEMENTATION environment variable not set!")
         if "CYCLONEDDS_URI" not in os.environ:
-            raise MissingEnvironmentVariableException(
-                "CYCLONEDDS_URI environment variable not set!"
-            )
+            raise MissingEnvironmentVariableException("CYCLONEDDS_URI environment variable not set!")
 
         # others
         self.logger = logging.get_logger(__name__)
@@ -85,7 +82,7 @@ class CloudInstance(abc.ABC):
         self.cloud_service_provider = None
         self.dockers = []
         self.launch_foxglove = launch_foxglove
-        self._username = 'ubuntu'
+        self._username = "ubuntu"
 
     @abc.abstractmethod
     def create(self):
@@ -130,9 +127,7 @@ class CloudInstance(abc.ABC):
         return self._name
 
     def apt_install(self, args):
-        self.scp.execute_cmd(
-            f"sudo DEBIAN_FRONTEND=noninteractive apt-get install -y {args}"
-        )
+        self.scp.execute_cmd(f"sudo DEBIAN_FRONTEND=noninteractive apt-get install -y {args}")
 
     def pip_install(self, args):
         self.scp.execute_cmd(f"python3 -m pip install {args}")
@@ -167,9 +162,7 @@ class CloudInstance(abc.ABC):
         # set locale
         self.apt_install("locales")
         self.scp.execute_cmd("sudo locale-gen en_US en_US.UTF-8")
-        self.scp.execute_cmd(
-            "sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8"
-        )
+        self.scp.execute_cmd("sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8")
         self.scp.execute_cmd("export LANG=en_US.UTF-8")
 
         # install ros2 packages
@@ -203,9 +196,7 @@ class CloudInstance(abc.ABC):
             "/etc/apt/sources.list.d/ros2-latest.list'"
         )
         self.scp.execute_cmd(
-            "curl -s"
-            " https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc"
-            " | sudo apt-key add -"
+            "curl -s" " https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc" " | sudo apt-key add -"
         )
 
         self.pip_install("colcon-common-extensions")
@@ -224,14 +215,10 @@ class CloudInstance(abc.ABC):
         self.scp.execute_cmd("echo successfully extracted new workspace")
 
     def push_to_cloud_nodes(self):
-        self.scp.send_file(
-            f"/tmp/to_cloud_{self._name}", "/tmp/to_cloud_nodes"
-        )
+        self.scp.send_file(f"/tmp/to_cloud_{self._name}", "/tmp/to_cloud_nodes")
 
     def push_and_setup_vpn(self):
-        self.scp.send_file(
-            f"/tmp/fogros-cloud.conf{self._name}", "/tmp/fogros-aws.conf"
-        )
+        self.scp.send_file(f"/tmp/fogros-cloud.conf{self._name}", "/tmp/fogros-aws.conf")
         self.scp.execute_cmd(
             "sudo cp /tmp/fogros-aws.conf /etc/wireguard/wg0.conf && "
             "sudo chmod 600 /etc/wireguard/wg0.conf && sudo wg-quick up wg0"
@@ -247,17 +234,14 @@ class CloudInstance(abc.ABC):
         cmd_builder = BashBuilder()
         cmd_builder.append(f"source /opt/ros/{self.ros_distro}/setup.bash")
         cmd_builder.append(
-            f"cd /home/{self._username}/fog_ws && colcon build --cmake-clean-cache"
+            f"cd /home/{self._username}/fog_ws && colcon build --packages-up-to demo_task --cmake-clean-cache"
         )
         cmd_builder.append(f". /home/{self._username}/fog_ws/install/setup.bash")
         cmd_builder.append(self.cyclone_builder.env_cmd)
         ros_domain_id = os.environ.get("ROS_DOMAIN_ID")
         if not ros_domain_id:
             ros_domain_id = 0
-        cmd_builder.append(
-            f"ROS_DOMAIN_ID={ros_domain_id} "
-            "ros2 launch fogros2 cloud.launch.py"
-        )
+        cmd_builder.append(f"ROS_DOMAIN_ID={ros_domain_id} " "ros2 launch fogros2 cloud.launch.py")
         self.logger.info(cmd_builder.get())
         self.scp.execute_cmd(cmd_builder.get())
 
@@ -268,10 +252,7 @@ class CloudInstance(abc.ABC):
         # launch foxglove docker (if launch_foxglove specified)
         if self.launch_foxglove:
             self.configure_rosbridge()
-            self.scp.execute_cmd(
-                "sudo docker run -d --rm -p '8080:8080' "
-                "ghcr.io/foxglove/studio:latest"
-            )
+            self.scp.execute_cmd("sudo docker run -d --rm -p '8080:8080' " "ghcr.io/foxglove/studio:latest")
 
         # launch user specified dockers
         for docker_cmd in self.dockers:
