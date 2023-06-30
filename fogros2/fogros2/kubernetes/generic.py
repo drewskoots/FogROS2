@@ -50,7 +50,8 @@ class KubeInstance(CloudInstance):
 
     def __init__(
         self,
-        container_image="docker.io/njha/fogros2_base",
+        # container_image="docker.io/njha/fogros2_base",
+        container_image="gitlab.lrz.de:5005/6g-life_miti/docker/franka_ros2:latest",
         zone="us-central1-a",
         mcpu=0,
         mb=0,
@@ -98,7 +99,7 @@ class KubeInstance(CloudInstance):
         return info_dict
 
     def force_start_vpn(self):
-        return False
+        return True
 
     def create_service_pair(self, pub_key_path: str):
         # Instance Selector
@@ -159,6 +160,7 @@ class KubeInstance(CloudInstance):
             },
             "spec": {
                 "restartPolicy": "Never",
+                "imagePullSecrets": [{"name": "regcred"}],
                 "containers": [
                     {
                         "name": self._name,
@@ -202,27 +204,18 @@ class KubeInstance(CloudInstance):
         for config in [vpn_config, ssh_config, pod_config]:
             file = tempfile.NamedTemporaryFile()
             open(file.name, "w").write(json.dumps(config))
-            self.logger.debug(
-                f"Creating {config['kind']}/{config['metadata']['name']}..."
-            )
+            self.logger.debug(f"Creating {config['kind']}/{config['metadata']['name']}...")
             os.system(f"kubectl apply -f {file.name}")
             file.close()
 
         # Poll until services are live...
         while True:
             if (
-                "Running" not
-                in subprocess.check_output(
-                    f"kubectl get pod {self._name}", shell=True
-                ).decode()
+                "Running" not in subprocess.check_output(f"kubectl get pod {self._name}", shell=True).decode()
                 or "pending"
-                in subprocess.check_output(
-                    f'kubectl get service {ssh_config["metadata"]["name"]}', shell=True
-                ).decode()
+                in subprocess.check_output(f'kubectl get service {ssh_config["metadata"]["name"]}', shell=True).decode()
                 or "pending"
-                in subprocess.check_output(
-                    f'kubectl get service {vpn_config["metadata"]["name"]}', shell=True
-                ).decode()
+                in subprocess.check_output(f'kubectl get service {vpn_config["metadata"]["name"]}', shell=True).decode()
             ):
                 self.logger.info("Some services still creating...")
                 time.sleep(5)
@@ -230,15 +223,10 @@ class KubeInstance(CloudInstance):
                 break
 
         self.logger.debug("Extracting IPs")
-        ssh_data = subprocess.check_output(
-            f'kubectl get service {ssh_config["metadata"]["name"]}', shell=True
-        ).decode()
-        vpn_data = subprocess.check_output(
-            f'kubectl get service {vpn_config["metadata"]["name"]}', shell=True
-        ).decode()
+        ssh_data = subprocess.check_output(f'kubectl get service {ssh_config["metadata"]["name"]}', shell=True).decode()
+        vpn_data = subprocess.check_output(f'kubectl get service {vpn_config["metadata"]["name"]}', shell=True).decode()
 
-        return extract_bash_column(ssh_data, "EXTERNAL-IP"),\
-            extract_bash_column(vpn_data, "EXTERNAL-IP")
+        return extract_bash_column(ssh_data, "EXTERNAL-IP"), extract_bash_column(vpn_data, "EXTERNAL-IP")
 
     def create_compute_engine_instance(self):
         # Generate SSH keys
