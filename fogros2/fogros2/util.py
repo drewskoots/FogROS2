@@ -78,16 +78,16 @@ def make_zip_file(dir_name, target_path):
     base_name = os.path.abspath(target_path)
     os.chdir(root_dir)
 
-    tar_compression = ''
-    archive_name = base_name + '.tar' + ''
+    tar_compression = ""
+    archive_name = base_name + ".tar" + ""
     archive_dir = os.path.dirname(archive_name)
 
     # https://stackoverflow.com/questions/16000794/python-tarfile-and-excludes
-    EXCLUDE_FILES = ['.git']
+    EXCLUDE_FILES = [".git"]
 
     if archive_dir and not os.path.exists(archive_dir):
         os.makedirs(archive_dir)
-    tar = tarfile.open(archive_name, 'w|%s' % tar_compression)
+    tar = tarfile.open(archive_name, "w|%s" % tar_compression, dereference=True)
     try:
         tar.add(workspace_name, filter=lambda x: None if x.name in EXCLUDE_FILES else x)
     finally:
@@ -103,14 +103,14 @@ def extract_bash_column(subprocess_output: str, column_name: str, row_number: in
     :param row_number: Defaults to the first data row, row_number = 1 is second data row
     :return: String of output value
     """
-    lines = subprocess_output.split('\n')
+    lines = subprocess_output.split("\n")
     if column_name not in lines[0]:
         raise LookupError(f"Could not find column {column_name} in {lines[0].strip()}")
     column_index = lines[0].index(column_name)
 
-    output_str = ''
-    while column_index != len(lines[row_number+1]) and lines[row_number+1][column_index] != ' ':
-        output_str += lines[row_number+1][column_index]
+    output_str = ""
+    while column_index != len(lines[row_number + 1]) and lines[row_number + 1][column_index] != " ":
+        output_str += lines[row_number + 1][column_index]
         column_index += 1
 
     return output_str
